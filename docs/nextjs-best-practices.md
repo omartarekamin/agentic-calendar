@@ -32,7 +32,8 @@ releases.
   by purpose (for example, `ui/` and `auth/`). Create route-local folders only
   when the route has components to colocate.
 - In Next.js 16, route protection uses `proxy.ts` (the successor to
-  `middleware.ts`); keep it aligned with the project's Descope setup.
+  `middleware.ts`); use the project's Descope middleware there to protect
+  routes before rendering, and keep it aligned with the session-cookie setup.
 - A `route.ts` endpoint cannot coexist with `page.tsx` in the same route
   segment.
 - Add parallel or intercepting routes only when the UX calls for concurrent

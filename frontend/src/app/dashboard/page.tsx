@@ -1,5 +1,5 @@
-import { AuthRoute } from "@/components/auth/auth-route";
+import { DashboardContent } from "./dashboard-content";
 
 export default function DashboardPage() {
-  return <AuthRoute mode="authenticated" />;
+  return <DashboardContent />;
 }

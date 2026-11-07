@@ -1,10 +1,21 @@
 import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import SignInComponent from "./sign-in";
 
+const { authRoute } = vi.hoisted(() => ({ authRoute: vi.fn() }));
+
 vi.mock("@/components/auth/auth-route", () => ({
-  AuthRoute: ({ children }: { children: ReactNode }) => <>{children}</>,
+  AuthRouteBoundary: ({
+    children,
+    mode,
+  }: {
+    children: ReactNode;
+    mode: string;
+  }) => {
+    authRoute(mode);
+    return <>{children}</>;
+  },
 }));
 
 vi.mock("./descope-flow", () => ({
@@ -12,28 +23,13 @@ vi.mock("./descope-flow", () => ({
 }));
 
 describe("SignInComponent", () => {
-  it("explains the planned calendar assistant capabilities", () => {
+  beforeEach(() => {
+    authRoute.mockClear();
+  });
+
+  it("guards the sign-in page for unauthenticated users", () => {
     render(<SignInComponent />);
 
-    expect(
-      screen.getByRole("heading", { name: /plan meetings by simply asking/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("What we’re building")).toBeInTheDocument();
-    expect(
-      screen.getByText("Keep Google Calendar in sync"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Manage meetings by asking"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Bring everyone together"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Pick up where you left off"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Built for AI workflows")).toBeInTheDocument();
-    expect(
-      screen.getByText(/external AI clients through MCP/i),
-    ).toBeInTheDocument();
+    expect(authRoute).toHaveBeenCalledWith("unauthenticated");
   });
 });

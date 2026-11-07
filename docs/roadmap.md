@@ -8,7 +8,11 @@ started, or reprioritized.
 - Created the Next.js frontend and Express/TypeScript backend workspaces.
 - Added PostgreSQL 16 local infrastructure in `docker-compose.yml`.
 - Added the backend PostgreSQL pool helper and `/health` database check.
+- Added server-side Descope client configuration and bearer session middleware
+  with backend tests.
+- Added the initial users repository and transactional SQL migration runner.
 - Added the Descope frontend provider and sign-in flow component.
+- Added dashboard logout functionality.
 - Established the initial frontend Tailwind v4, shadcn Base UI, and theme
   token setup.
 - Documented architecture, frontend best practices/performance, API contract,
@@ -23,11 +27,9 @@ started, or reprioritized.
 
 ## Next
 
-1. Implement and validate backend configuration, Descope session validation,
-   central error handling, and protected API foundations.
-2. Decide and add the migration execution mechanism; implement user,
-   Google Calendar connection metadata, meeting, and conversation persistence
-   models as required by the approved designs.
+1. Add central error handling and protected API foundations.
+2. Implement Google Calendar connection metadata, meeting, and conversation
+   persistence models as required by the approved designs.
 3. Implement Google Calendar authorization through Descope Connections,
    including scopes, token lifecycle, and sync/conflict behavior.
 4. Implement user-scoped meeting services and REST endpoints that create,

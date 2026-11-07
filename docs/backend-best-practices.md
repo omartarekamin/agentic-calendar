@@ -80,7 +80,7 @@ routes/ -> services/ -> db/
 
 ## Current implementation status
 
-The backend currently contains an Express bootstrap, a PostgreSQL pool helper,
-and a database-checking `/health` endpoint. The planned routes, configuration
-module, auth middleware, service layer, migration runner, and central error
+The backend contains an Express bootstrap, PostgreSQL pool, initial users
+repository and SQL migration runner, Descope client configuration, and session
+middleware. Protected application routes, a service layer, and central error
 handler remain to be implemented.

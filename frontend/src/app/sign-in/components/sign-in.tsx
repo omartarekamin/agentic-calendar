@@ -7,7 +7,7 @@ import {
   Sparkles,
   Video,
 } from "lucide-react";
-import { AuthRoute } from "@/components/auth/auth-route";
+import { AuthRouteBoundary } from "@/components/auth/auth-route";
 import { DescopeFlow } from "./descope-flow";
 
 const productCapabilities = [
@@ -39,7 +39,7 @@ const productCapabilities = [
 
 export default function SignInComponent() {
   return (
-    <AuthRoute mode="unauthenticated">
+    <AuthRouteBoundary mode="unauthenticated">
       <main className="app-shell-bg min-h-svh px-5 py-6 sm:px-8 sm:py-10">
         <div className="mx-auto flex min-h-[calc(100svh-3rem)] max-w-6xl flex-col sm:min-h-[calc(100svh-5rem)]">
           <header className="flex items-center gap-3">
@@ -58,8 +58,7 @@ export default function SignInComponent() {
                 Your calendar, in conversation
               </div>
               <h1 className="font-heading text-5xl leading-[1.08] tracking-tight sm:text-6xl">
-                Plan meetings
-                <br />
+                Plan meetings{" "}
                 <span className="text-primary">by simply asking.</span>
               </h1>
               <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
@@ -134,6 +133,6 @@ export default function SignInComponent() {
           </footer>
         </div>
       </main>
-    </AuthRoute>
+    </AuthRouteBoundary>
   );
 }

@@ -24,7 +24,7 @@ Browser (Next.js)
    | 2. HTTPS + Authorization: Bearer <JWT>
    v
 Express API (Node.js)
-   |-- auth middleware: validate JWT with Descope -> req.userId
+   |-- auth middleware: validate JWT -> req.user, req.userId, req.dbUserId
    |-- REST routes -> services -> PostgreSQL
    '-- /chat route -> Mastra agent -> tools -> services -> PostgreSQL
 ```
@@ -35,8 +35,9 @@ Express API (Node.js)
 
 - Next.js App Router. The product experience will include Google Calendar
   connection, meeting management, and an AI chat interface.
-- Descope `AuthProvider` manages the application session. Client route checks
-  improve navigation but do not replace backend authorization.
+- Descope `AuthProvider` manages the application session. Next.js Proxy
+  redirects unauthenticated dashboard requests before rendering; frontend
+  route protection does not replace backend authorization.
 - Holds presentation and UI state. Calendar and agent operations go through
   the backend.
 
@@ -45,11 +46,12 @@ Express API (Node.js)
 ```
 src/
   index.ts          app bootstrap, listen
-  config.ts         env loading + Zod validation
-  middleware/       auth.ts (Descope), error-handler.ts
+  config/           descope.ts (server-side Descope client)
+  middleware/       requireSession.ts (Descope), error-handler.ts
   routes/           events.ts, chat.ts, health.ts
   services/         event-service.ts (business logic, shared with agent tools)
-  db/               client.ts (pg Pool), migrations/*.sql, queries
+  db/               pool.ts, user.repository.ts, migrate.ts
+  sql/              ordered SQL migrations
   agent/            Mastra agent, tools, and working memory
   integrations/     Google Calendar operations via Descope Connections
   mcp/              Descope MCP server integration and external tools
@@ -57,14 +59,18 @@ src/
 
 ### Database (PostgreSQL via `docker-compose.yml`)
 
-Single instance, one app database. Migrations are plain ordered `.sql` files in `backend/src/db/migrations/` **(draft)**.
+Single instance, one app database. Ordered SQL migrations are stored in
+`backend/sql/` and run by `backend/src/db/migrate.ts`.
 
 ### Auth (Descope)
 
 - Descope hosts the login flow and issues the session JWT.
 - Frontend: `@descope/nextjs-sdk` (session, user, route protection).
-- Backend: `@descope/node-sdk` `validateSession(token)` -> user id from the `sub` claim.
-- The Descope user id (`sub`) is the owner key in our tables. No password handling in our code.
+- Backend: `@descope/node-sdk` `validateSession(token)` -> user id from the
+  `sub` claim, provided to protected routes by `requireSession` middleware.
+- The Descope user id (`sub`) is stored in `users.auth_user_id`; tables use
+  their internal `users.id` UUID for foreign keys. No password handling in our
+  code.
 - Google Calendar authorization will use Descope Connections. The connection
   flow, token lifecycle, and required scopes still need implementation.
 
@@ -94,14 +100,15 @@ Single instance, one app database. Migrations are plain ordered `.sql` files in 
 
 ```sql
 users (
-  id          text primary key,         -- Descope user id (sub)
+  id          uuid primary key default gen_random_uuid(),
+  auth_user_id text unique not null,    -- Descope user id (sub)
   email       text,
   created_at  timestamptz default now()
 );
 
 events (
   id          uuid primary key default gen_random_uuid(),
-  user_id     text not null references users(id) on delete cascade,
+  user_id     uuid not null references users(id) on delete cascade,
   title       text not null,
   description text,
   starts_at   timestamptz not null,
@@ -113,7 +120,8 @@ events (
 create index on events (user_id, starts_at);
 ```
 
-Users are upserted on first authenticated request.
+The authentication middleware upserts a user by `auth_user_id` on each
+protected request and exposes the internal users-table UUID as `req.dbUserId`.
 
 ## 4. API contract (draft)
 

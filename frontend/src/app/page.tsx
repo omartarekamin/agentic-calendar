@@ -1,5 +1,5 @@
-import { AuthRoute } from "@/components/auth/auth-route";
+import { AuthRouteBoundary } from "@/components/auth/auth-route";
 
 export default function HomePage() {
-  return <AuthRoute mode="redirect" />;
+  return <AuthRouteBoundary mode="redirect" />;
 }

@@ -1,13 +1,14 @@
 # Database
 
-PostgreSQL 16 is the application's database. The target schema and migration
-conventions below are based on the architecture decision; migrations and
-application tables have not yet been added.
+PostgreSQL 16 is the application's database. The initial users table is
+defined in `backend/sql/001_users.sql`; applied migration filenames are tracked
+in `schema_migrations`.
 
 ## Ownership and access
 
 - The backend is the only application layer that connects to PostgreSQL.
-- Scope every event read, update, and delete by the authenticated user ID.
+- Scope every event read, update, and delete by the authenticated user's
+  internal UUID (`req.dbUserId`).
 - Use parameterized SQL (`$1`, `$2`, etc.); never interpolate user input into
   SQL text.
 - Keep SQL in the database layer and business rules in services.
@@ -19,14 +20,15 @@ migrations:
 
 ```sql
 CREATE TABLE users (
-  id text PRIMARY KEY,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  auth_user_id text UNIQUE NOT NULL,
   email text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   title text NOT NULL,
   description text,
   starts_at timestamptz NOT NULL,
@@ -40,26 +42,26 @@ CREATE TABLE events (
 CREATE INDEX events_user_starts_at_idx ON events (user_id, starts_at);
 ```
 
-`users.id` is the validated Descope subject (`sub`). SQL uses `snake_case`;
-TypeScript API objects use `camelCase`. Map database rows to application/API
-types in the database or service boundary rather than exposing raw rows.
+`users.auth_user_id` is the validated Descope subject (`sub`); `users.id` is
+an internal UUID for database relationships. SQL uses `snake_case`; TypeScript
+API objects use `camelCase`. Map database rows to application/API types in
+the database or service boundary rather than exposing raw rows.
 
 All stored instants use `timestamptz` and UTC. API timestamps are ISO 8601
 strings. Convert to a user's local timezone only for display.
 
 ## Migration rules
 
-- Store ordered SQL migrations in `backend/src/db/migrations/`.
+- Store ordered SQL migrations in `backend/sql/`.
 - Use sequential, descriptive filenames such as
-  `0001_create_users_and_events.sql`.
+  `001_users.sql`.
 - Treat migrations as append-only once applied. Correct mistakes with a new
   migration rather than editing a migration that may have run elsewhere.
-- Keep each migration focused. Use a transaction for multi-statement changes
-  when supported by the migration runner.
+- Keep each migration focused. The runner applies each migration
+  transactionally.
 - Review destructive changes and data-loss implications before applying them.
-- There is currently no migration runner or migration history table. Choose
-  and document the execution mechanism before adding migrations; do not assume
-  manual startup SQL or an ORM.
+- `backend/src/db/migrate.ts` tracks applied filenames in `schema_migrations`.
+  Run pending migrations with `npm run migrate` from `backend/`.
 
 ## Naming and query conventions
 

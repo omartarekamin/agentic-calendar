@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { getPool } from './pool.js';
+import { getPool } from './db/pool.js';
 
 const app = express();
 const port = process.env.PORT || 4000;

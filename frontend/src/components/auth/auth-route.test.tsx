@@ -1,124 +1,72 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { paths } from "@/lib/paths";
 import { AuthRoute } from "./auth-route";
 
-const { replace, useSession } = vi.hoisted(() => ({
-  replace: vi.fn(),
-  useSession: vi.fn<
-    () => { isAuthenticated: boolean; isSessionLoading: boolean }
-  >(),
+const { redirect, session } = vi.hoisted(() => ({
+  redirect: vi.fn<(path: string) => never>(),
+  session: vi.fn<() => Promise<unknown>>(),
 }));
 
-vi.mock("@descope/nextjs-sdk/client", () => ({ useSession }));
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace }),
-}));
+vi.mock("@descope/nextjs-sdk/server", () => ({ session }));
+vi.mock("next/navigation", () => ({ redirect }));
 
 describe("AuthRoute", () => {
   beforeEach(() => {
-    replace.mockReset();
+    redirect.mockReset();
+    redirect.mockImplementation((path) => {
+      throw new Error(`redirect:${path}`);
+    });
+    session.mockReset();
   });
 
-  afterEach(cleanup);
-
-  it("waits for the session check before rendering protected content", () => {
-    useSession.mockReturnValue({
-      isAuthenticated: false,
-      isSessionLoading: true,
-    });
+  it("renders authenticated content when the session is valid", async () => {
+    session.mockResolvedValue({});
 
     render(
-      <AuthRoute mode="authenticated">
-        <p>Private content</p>
-      </AuthRoute>,
-    );
-
-    expect(screen.getByRole("status")).toHaveAccessibleName(
-      "Checking your session",
-    );
-    expect(screen.queryByText("Private content")).not.toBeInTheDocument();
-    expect(replace).not.toHaveBeenCalled();
-  });
-
-  it("renders authenticated content when the session is valid", () => {
-    useSession.mockReturnValue({
-      isAuthenticated: true,
-      isSessionLoading: false,
-    });
-
-    render(
-      <AuthRoute mode="authenticated">
-        <p>Private content</p>
-      </AuthRoute>,
+      await AuthRoute({
+        mode: "authenticated",
+        children: <p>Private content</p>,
+      }),
     );
 
     expect(screen.getByText("Private content")).toBeInTheDocument();
-    expect(replace).not.toHaveBeenCalled();
   });
 
-  it("redirects unauthenticated users away from protected content", async () => {
-    useSession.mockReturnValue({
-      isAuthenticated: false,
-      isSessionLoading: false,
-    });
+  it("renders the sign-in page for unauthenticated users", async () => {
+    session.mockResolvedValue(undefined);
 
     render(
-      <AuthRoute mode="authenticated">
-        <p>Private content</p>
-      </AuthRoute>,
-    );
-
-    expect(screen.queryByText("Private content")).not.toBeInTheDocument();
-    await waitFor(() => expect(replace).toHaveBeenCalledWith(paths.signIn));
-  });
-
-  it("renders the sign-in page for unauthenticated users", () => {
-    useSession.mockReturnValue({
-      isAuthenticated: false,
-      isSessionLoading: false,
-    });
-
-    render(
-      <AuthRoute mode="unauthenticated">
-        <p>Sign-in content</p>
-      </AuthRoute>,
+      await AuthRoute({
+        mode: "unauthenticated",
+        children: <p>Sign-in content</p>,
+      }),
     );
 
     expect(screen.getByText("Sign-in content")).toBeInTheDocument();
-    expect(replace).not.toHaveBeenCalled();
   });
 
   it("redirects authenticated users away from the sign-in page", async () => {
-    useSession.mockReturnValue({
-      isAuthenticated: true,
-      isSessionLoading: false,
-    });
+    session.mockResolvedValue({});
 
-    render(
-      <AuthRoute mode="unauthenticated">
-        <p>Sign-in content</p>
-      </AuthRoute>,
-    );
-
-    expect(screen.queryByText("Sign-in content")).not.toBeInTheDocument();
-    await waitFor(() => expect(replace).toHaveBeenCalledWith(paths.dashboard));
+    await expect(
+      AuthRoute({ mode: "unauthenticated", children: <p>Sign-in content</p> }),
+    ).rejects.toThrow(`redirect:${paths.dashboard}`);
+    expect(redirect).toHaveBeenCalledWith(paths.dashboard);
   });
 
   it.each([
-    [true, paths.dashboard],
-    [false, paths.signIn],
+    [{}, paths.dashboard],
+    [undefined, paths.signIn],
   ])(
     "redirects from the root to %s",
-    async (isAuthenticated, expectedRoute) => {
-      useSession.mockReturnValue({
-        isAuthenticated,
-        isSessionLoading: false,
-      });
+    async (sessionInfo, expectedRoute) => {
+      session.mockResolvedValue(sessionInfo);
 
-      render(<AuthRoute mode="redirect" />);
-
-      await waitFor(() => expect(replace).toHaveBeenCalledWith(expectedRoute));
+      await expect(AuthRoute({ mode: "redirect" })).rejects.toThrow(
+        `redirect:${expectedRoute}`,
+      );
+      expect(redirect).toHaveBeenCalledWith(expectedRoute);
     },
   );
 });

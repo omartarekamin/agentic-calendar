@@ -1,8 +1,6 @@
-"use client";
-
-import { useSession } from "@descope/nextjs-sdk/client";
-import { useRouter } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { session } from "@descope/nextjs-sdk/server";
+import { redirect } from "next/navigation";
+import { Suspense, type ReactNode } from "react";
 import { paths } from "@/lib/paths";
 
 type AuthRouteProps = {
@@ -10,40 +8,40 @@ type AuthRouteProps = {
   children?: ReactNode;
 };
 
-export function AuthRoute({ mode, children }: AuthRouteProps) {
-  const { isAuthenticated, isSessionLoading } = useSession();
-  const router = useRouter();
+export function AuthRouteBoundary(props: AuthRouteProps) {
+  return (
+    <Suspense fallback={<AuthRouteFallback />}>
+      <AuthRoute {...props} />
+    </Suspense>
+  );
+}
 
-  useEffect(() => {
-    if (isSessionLoading) {
-      return;
-    }
+export async function AuthRoute({ mode, children }: AuthRouteProps) {
+  const isAuthenticated = Boolean(await session());
 
-    if (mode === "redirect") {
-      router.replace(isAuthenticated ? paths.dashboard : paths.signIn);
-    } else if (mode === "authenticated" && !isAuthenticated) {
-      router.replace(paths.signIn);
-    } else if (mode === "unauthenticated" && isAuthenticated) {
-      router.replace(paths.dashboard);
-    }
-  }, [isAuthenticated, isSessionLoading, mode, router]);
+  if (mode === "redirect") {
+    redirect(isAuthenticated ? paths.dashboard : paths.signIn);
+  }
 
-  const canRender =
-    !isSessionLoading &&
-    ((mode === "authenticated" && isAuthenticated) ||
-      (mode === "unauthenticated" && !isAuthenticated));
+  if (mode === "authenticated" && !isAuthenticated) {
+    redirect(paths.signIn);
+  }
 
-  if (!canRender) {
-    return (
-      <main
-        className="app-shell-bg flex min-h-svh items-center justify-center"
-        role="status"
-        aria-label="Checking your session"
-      >
-        <span className="size-8 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
-      </main>
-    );
+  if (mode === "unauthenticated" && isAuthenticated) {
+    redirect(paths.dashboard);
   }
 
   return <>{children}</>;
+}
+
+function AuthRouteFallback() {
+  return (
+    <main
+      className="app-shell-bg flex min-h-svh items-center justify-center"
+      role="status"
+      aria-label="Checking your session"
+    >
+      <span className="size-8 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
+    </main>
+  );
 }
