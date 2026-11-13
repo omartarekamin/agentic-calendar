@@ -1,17 +1,15 @@
 # API Contract
 
-This document defines the target HTTP contract for the Express backend. The
-calendar and chat endpoints below are planned and are not implemented yet.
-Only `GET /health` currently exists. Update this document whenever an endpoint
-or its behavior changes.
+This document defines the HTTP contract for the Express backend. Update it
+whenever an endpoint or its behavior changes.
 
 The product goal is to manage Google Calendar meetings through natural-language
 AI conversations, with streamed responses, persistent chat history, agent
 working memory, Google Meet and email invite support, and MCP tools for
 external AI clients. These are planned capabilities, not currently available
-API behavior. Google Calendar access is intended to use Descope Connections.
-Contracts for Google synchronization, conversation persistence, and MCP access
-must be documented before those capabilities are implemented.
+API behavior. Google Calendar connection management through Descope Outbound Apps
+is implemented; calendar event synchronization, conversation persistence, and
+MCP access are not.
 
 ## Conventions
 
@@ -37,6 +35,67 @@ must be documented before those capabilities are implemented.
 Never return stack traces, SQL, tokens, or internal exception messages.
 
 ## Endpoints
+
+### `POST /api/connections/connect`
+
+Protected. Marks the authenticated user's Google Calendar connection as
+`pending` and returns the configured Descope outbound app ID. The frontend
+then starts the OAuth flow using the Descope browser SDK and the active
+session. This avoids sending a session JWT to the backend OAuth initiation
+API, which requires a refresh token.
+
+**Success — `200 OK`**
+
+```json
+{
+  "calendarConnection": {
+    "id": "google-calendar",
+    "name": "Google Calendar",
+    "status": "pending"
+  }
+}
+```
+
+The API does not expose OAuth access or refresh tokens. After the user grants
+Google consent and returns to the application, the frontend automatically
+refreshes status to verify that Descope has stored the user's token.
+
+### `GET /api/connections/calendar-connection`
+
+Protected. Returns the connection status last stored for the authenticated
+user. A user with no stored status is returned as `disconnected`.
+
+**Success — `200 OK`**
+
+```json
+{
+  "calendarConnection": {
+    "id": "google-calendar",
+    "name": "Google Calendar",
+    "status": "connected"
+  }
+}
+```
+
+### `POST /api/connections/refresh-status`
+
+Protected. Checks Descope for a valid user token for the configured outbound
+application, stores the result, and returns it. Call this after the user
+completes the consent redirect.
+
+**Success — `200 OK`**
+
+```json
+{
+  "calendarConnection": {
+    "id": "google-calendar",
+    "name": "Google Calendar",
+    "status": "connected"
+  }
+}
+```
+
+The `status` is `connected`, `disconnected`, or `pending`.
 
 ### `GET /health`
 

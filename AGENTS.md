@@ -138,7 +138,7 @@ Whenever code is generated or changed, review whether the change affects archite
 
 ## Environment variables
 
-- `backend/.env`: `PORT`, `DATABASE_URL`, `DESCOPE_PROJECT_ID`, `FRONTEND_URL` (for CORS), plus the LLM provider key when Mastra is added.
+- `backend/.env`: `PORT`, `DATABASE_URL`, `DESCOPE_PROJECT_ID`, `DESCOPE_MANAGEMENT_KEY`, `DESCOPE_CALENDAR_CONNECTION_ID`, `FRONTEND_URL` (for CORS), plus the LLM provider key when Mastra is added.
 - `frontend/.env.local`: `NEXT_PUBLIC_DESCOPE_PROJECT_ID`, `NEXT_PUBLIC_API_URL`.
 
 ## Working style

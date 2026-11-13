@@ -42,6 +42,20 @@ CREATE TABLE events (
 CREATE INDEX events_user_starts_at_idx ON events (user_id, starts_at);
 ```
 
+`backend/sql/002_connections.sql` adds the connection-status table used by the
+Descope Google Calendar connection endpoints:
+
+```sql
+CREATE TABLE connections (
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider text NOT NULL CHECK (provider IN ('calendar')),
+  status text NOT NULL CHECK (status IN ('connected', 'disconnected', 'pending')),
+  PRIMARY KEY (user_id, provider)
+);
+```
+
+This table contains status metadata only. Descope retains OAuth credentials.
+
 `users.auth_user_id` is the validated Descope subject (`sub`); `users.id` is
 an internal UUID for database relationships. SQL uses `snake_case`; TypeScript
 API objects use `camelCase`. Map database rows to application/API types in

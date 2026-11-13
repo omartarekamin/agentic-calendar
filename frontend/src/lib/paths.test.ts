@@ -7,6 +7,7 @@ describe("paths", () => {
       home: "/",
       signIn: "/sign-in",
       dashboard: "/dashboard",
+      connectionTest: "/connection-test",
     });
   });
 });

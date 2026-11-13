@@ -5,6 +5,9 @@ export function createApiURLs(baseUrl: string) {
 
   return {
     health: `${normalizedBaseUrl}/health`,
+    calendarConnect: `${normalizedBaseUrl}/api/connections/connect`,
+    calendarConnection: `${normalizedBaseUrl}/api/connections/calendar-connection`,
+    calendarConnectionRefreshStatus: `${normalizedBaseUrl}/api/connections/refresh-status`,
     events: `${normalizedBaseUrl}/api/events`,
     chat: `${normalizedBaseUrl}/api/chat`,
   };

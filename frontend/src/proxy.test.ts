@@ -13,12 +13,16 @@ describe("auth proxy", () => {
   });
 
   it("requires a valid session before rendering dashboard routes", async () => {
-    await import("./proxy");
+    const { config } = await import("./proxy");
 
     expect(authMiddleware).toHaveBeenCalledWith({
-      privateRoutes: [paths.dashboard],
+      privateRoutes: [paths.dashboard, paths.connectionTest],
       redirectUrl: paths.signIn,
       skipRefreshTokenValidation: true,
     });
+    expect(config.matcher).toEqual([
+      "/dashboard/:path*",
+      "/connection-test/:path*",
+    ]);
   });
 });

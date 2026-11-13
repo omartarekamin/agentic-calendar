@@ -14,9 +14,10 @@ external AI clients.
 
 These are product goals, not a description of currently available features.
 The current implementation is an early scaffold: Descope sign-in and
-session-aware frontend routing, a PostgreSQL connection/health check, and a
-sign-in experience are present; calendar integration, application APIs,
-agent workflows, chat persistence, and MCP capabilities are not implemented.
+session-aware frontend routing, a PostgreSQL connection/health check, and
+protected Google Calendar connection management through Descope Outbound Apps
+are present. Calendar event synchronization, agent workflows, chat
+persistence, and MCP capabilities are not implemented.
 
 ```
 Browser (Next.js)
@@ -48,12 +49,12 @@ src/
   index.ts          app bootstrap, listen
   config/           descope.ts (server-side Descope client)
   middleware/       requireSession.ts (Descope), error-handler.ts
-  routes/           events.ts, chat.ts, health.ts
-  services/         event-service.ts (business logic, shared with agent tools)
+  routes/           connection.routes.ts, events.ts, chat.ts, health.ts
+  services/         connection.service.ts, event-service.ts (shared with agent tools)
   db/               pool.ts, user.repository.ts, migrate.ts
   sql/              ordered SQL migrations
   agent/            Mastra agent, tools, and working memory
-  integrations/     Google Calendar operations via Descope Connections
+  integrations/     Google Calendar operations via Descope Outbound Apps
   mcp/              Descope MCP server integration and external tools
 ```
 
@@ -71,8 +72,11 @@ Single instance, one app database. Ordered SQL migrations are stored in
 - The Descope user id (`sub`) is stored in `users.auth_user_id`; tables use
   their internal `users.id` UUID for foreign keys. No password handling in our
   code.
-- Google Calendar authorization will use Descope Connections. The connection
-  flow, token lifecycle, and required scopes still need implementation.
+- Google Calendar authorization uses the configured Descope outbound
+  application. The backend records a pending status and returns the app ID;
+  the frontend starts consent with the Descope browser SDK and active session.
+  The backend checks Descope for the user's token when status is refreshed.
+  Calendar tokens remain in Descope.
 
 ### Agent (Mastra, not installed yet)
 
@@ -106,6 +110,13 @@ users (
   created_at  timestamptz default now()
 );
 
+connections (
+  user_id   uuid not null references users(id) on delete cascade,
+  provider  text not null check (provider in ('calendar')),
+  status    text not null check (status in ('connected', 'disconnected', 'pending')),
+  primary key (user_id, provider)
+);
+
 events (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null references users(id) on delete cascade,
@@ -127,14 +138,17 @@ protected request and exposes the internal users-table UUID as `req.dbUserId`.
 
 All routes except `/health` require a valid Bearer token. Errors use `{ "error": { "code": string, "message": string } }`.
 
-| Method | Path                  | Purpose                                         |
-| ------ | --------------------- | ----------------------------------------------- |
-| GET    | `/health`             | Liveness check                                  |
-| GET    | `/api/events?from&to` | List the user's events in a range               |
-| POST   | `/api/events`         | Create an event                                 |
-| PATCH  | `/api/events/:id`     | Update an event                                 |
-| DELETE | `/api/events/:id`     | Delete an event                                 |
-| POST   | `/api/chat`           | Send a message to the agent (streamed response) |
+| Method | Path                                    | Purpose                                  |
+| ------ | --------------------------------------- | ---------------------------------------- |
+| GET    | `/health`                               | Liveness check                           |
+| POST   | `/api/connections/connect`              | Start Google Calendar OAuth consent flow |
+| GET    | `/api/connections/calendar-connection`  | Get stored calendar connection status    |
+| POST   | `/api/connections/refresh-status`       | Refresh status from Descope tokens        |
+| GET    | `/api/events?from&to`                   | List the user's events in a range         |
+| POST   | `/api/events`                           | Create an event                           |
+| PATCH  | `/api/events/:id`                       | Update an event                           |
+| DELETE | `/api/events/:id`                       | Delete an event                           |
+| POST   | `/api/chat`                             | Send a message to the agent (streamed)    |
 
 ## 5. Key decisions
 
@@ -152,7 +166,7 @@ All routes except `/health` require a valid Bearer token. Errors use `{ "error":
 
 ## 7. Open questions
 
-- Google Calendar scopes, supported calendars, conflict handling, and
+- Google Calendar event scopes, supported calendars, conflict handling, and
   synchronization/error behavior.
 - Conversation schema, retention/deletion policy, and separation of persisted
   chat history from Mastra working memory.

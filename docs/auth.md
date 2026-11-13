@@ -26,15 +26,39 @@ or invalid token. It exposes the validated token claims (excluding the raw
 JWT) as `req.user`, the `sub` as `req.userId`, and the database UUID as
 `req.dbUserId`.
 
-The authenticated dashboard provides a logout control using Descope's
-`useDescope().logout()` API. After logout completes, it routes the user to
-`/sign-in`; a failed logout remains on the dashboard and displays an error.
+The authenticated dashboard shows a Google Calendar connection panel in the
+left sidebar. It refreshes the connection status when the dashboard opens,
+supports starting or reconnecting consent, and allows a manual status refresh.
+After consent returns to the dashboard, it automatically refreshes the status.
+The main panel is a presentational chat shell only; chat and calendar event
+operations are not available yet. The logout control is in the lower-left
+sidebar and uses Descope's `useDescope().logout()` API. After logout completes,
+it routes the user to `/sign-in`; a failed logout remains on the dashboard and
+displays an error. The separate protected `/connection-test` route remains
+available for testing the connection flow.
 
-Google Calendar authorization is a separate, planned integration. The product
-will use Descope Connections for Google Calendar access; no Google connection
-flow, scopes, or token lifecycle is implemented yet. Google connection
-credentials must remain server-side and must not be confused with the
-application's Descope session JWT.
+Google Calendar authorization uses a Descope outbound application. The
+protected `POST /api/connections/connect` endpoint marks the user's connection
+as `pending` and returns the configured app ID. The frontend then calls
+`outbound.connect()` from the Descope browser SDK using the active session to
+start consent. The backend stores only
+`pending`/`connected`/`disconnected` status;
+`POST /api/connections/refresh-status` checks Descope's user-token list using
+the validated Descope subject. `GET /api/connections/calendar-connection`
+reads the status scoped by the database user ID. Never return or log Google
+access or refresh tokens. Descope's direct API initiation flow requires a
+refresh token; do not pass the session JWT to that API. The app ID is
+configured server-side with `DESCOPE_CALENDAR_CONNECTION_ID` (currently
+`google-calendar`).
+This ID must identify an app under **Connect → Outbound Apps** in the same
+Descope project as the frontend and backend. Descope's separate **Connections**
+objects are not interchangeable with Outbound Apps. The frontend displays
+Descope's returned error description and trace ID when consent initiation
+fails, to help diagnose provider configuration in the Descope Console. The
+browser SDK request includes the current page URL as its post-consent return
+URL; configure it in the outbound app's redirect settings. Separately, add
+Descope's outbound-app callback URL (shown in the app settings) to the Google
+OAuth client's authorized redirect URIs.
 
 ## Security requirements
 
@@ -57,12 +81,13 @@ application's Descope session JWT.
 
 ## Frontend route protection
 
-Next.js Proxy protects `/dashboard` and redirects requests without a valid
-Descope session token to `/sign-in` before rendering the page. It does not
-accept a refresh token alone as authorization. The root route sends signed-in
-users to `/dashboard` and signed-out users to `/sign-in`; the sign-in page
-redirects signed-in users to `/dashboard` using the server-side route guard.
-The Descope flow and interactive controls remain Client Components.
+Next.js Proxy protects `/dashboard` and `/connection-test`, redirecting
+requests without a valid Descope session token to `/sign-in` before rendering
+the page. It does not accept a refresh token alone as authorization. The root
+route sends signed-in users to `/dashboard` and signed-out users to
+`/sign-in`; the sign-in page redirects signed-in users to `/dashboard` using
+the server-side route guard. The Descope flow and interactive controls remain
+Client Components.
 
 These frontend redirects improve navigation only; they are not an
 authorization boundary. Every protected backend endpoint must independently

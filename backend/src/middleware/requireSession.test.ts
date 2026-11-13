@@ -6,6 +6,7 @@ import 'dotenv/config';
 
 process.env.DESCOPE_PROJECT_ID ??= 'test-project';
 process.env.DESCOPE_MANAGEMENT_KEY ??= 'test-management-key';
+process.env.DESCOPE_CALENDAR_CONNECTION_ID ??= 'google-calendar';
 
 const { createRequireSession } = await import('./requireSession.js');
 

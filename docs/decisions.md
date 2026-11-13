@@ -42,7 +42,7 @@ Base UI components. The project is configured for Base UI rather than Radix.
 ### Product direction: conversational Google Calendar management
 
 The target product securely connects a user's Google Calendar through Descope
-Connections and lets them list, create, reschedule, and cancel meetings using
+Outbound Apps and lets them list, create, reschedule, and cancel meetings using
 natural language with a Mastra agent. Successful changes must be reflected in
 Google Calendar. The experience also targets streamed responses, persistent
 chat history, agent working memory, Google Meet and email invite support, and
