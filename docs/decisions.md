@@ -39,6 +39,13 @@ with Zod so untrusted data is checked before entering application logic.
 The frontend uses Next.js App Router, React, Tailwind CSS v4, and shadcn/ui
 Base UI components. The project is configured for Base UI rather than Radix.
 
+### Development and production container builds
+
+Docker Compose provides a local development stack for PostgreSQL, the backend,
+and the frontend, plus a separate production-mode Compose configuration. Each
+application has environment-specific Dockerfiles. The hosting platform and
+public deployment operations remain undecided.
+
 ### Product direction: conversational Google Calendar management
 
 The target product securely connects a user's Google Calendar through Descope
@@ -61,7 +68,8 @@ implemented. Their detailed behavior remains subject to the open questions in
 - Google Calendar scopes, Google Meet and email invite details.
 - Chat history schema, retention, and separation from agent working memory.
 - MCP transport, client authorization, and tool permission boundaries.
-- Migration runner and production deployment model.
+- Production hosting platform and deployment operations, including TLS,
+  secret management, and backup strategy.
 
 Do not treat undecided items as implementation requirements. Resolve and
 record a decision before introducing behavior that depends on one.

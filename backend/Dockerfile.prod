@@ -1,0 +1,27 @@
+FROM node:22-alpine AS build
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+FROM node:22-alpine AS runtime
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/sql ./sql
+
+ENV NODE_ENV=production
+ENV PORT=4000
+EXPOSE 4000
+
+USER node
+
+CMD ["sh", "-c", "node dist/db/migrate.js && npm start"]

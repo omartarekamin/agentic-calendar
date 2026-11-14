@@ -160,11 +160,40 @@ All routes except `/health` require a valid Bearer token. Errors use `{ "error":
 
 ## 6. Local development
 
-1. `docker compose up -d` starts PostgreSQL.
-2. Create `backend/.env` and `frontend/.env.local` (see `AGENTS.md` for variables).
-3. Run migrations, then `npm run dev` in `backend/` and `frontend/`.
+1. Create `backend/.env` and `frontend/.env.local` (see `AGENTS.md` for
+   variables).
+2. Run `docker compose up --build` from the repository root. This starts
+   PostgreSQL, the backend, the frontend, and Adminer. The backend waits for
+   PostgreSQL, applies pending migrations, and then starts its development
+   server.
+3. Open the frontend at `http://localhost:3000`, the API at
+   `http://localhost:4000`, and Adminer at `http://localhost:8080`. PostgreSQL
+   is available on host port `5442`.
 
-## 7. Open questions
+The development services use `backend/Dockerfile.dev` and
+`frontend/Dockerfile.dev`; source directories are mounted for hot reload.
+
+## 7. Production containers
+
+Copy `.env.example` to `.env`, replace every placeholder, and set
+`APP_URL` and `NEXT_PUBLIC_API_URL` to the public frontend and backend origins.
+`DATABASE_URL` must use `postgres` as its hostname so the backend can reach the
+database on the Compose network. Keep the database password URL-safe or
+percent-encode it in `DATABASE_URL`.
+
+Build and start the production stack with
+`docker compose -f docker-compose.prod.yml up --build -d`. It builds the
+frontend and backend from their respective `Dockerfile.prod` files, runs
+pending database migrations before starting the API, and keeps PostgreSQL
+private to the Compose network. The frontend and backend are published on
+ports `3000` and `4000`; Adminer is not included.
+
+This Compose configuration is a production-mode container build, not a
+complete public deployment recipe. TLS termination, a reverse proxy, external
+secret management, backups, and hosting-specific operations still need to be
+configured for the chosen deployment platform.
+
+## 8. Open questions
 
 - Google Calendar event scopes, supported calendars, conflict handling, and
   synchronization/error behavior.
@@ -176,9 +205,10 @@ All routes except `/health` require a valid Bearer token. Errors use `{ "error":
 - Google Meet and email invitation provider behavior and required permissions.
 - MCP transport, external client authorization, tool permissions, and
   revocation lifecycle.
-- Migration runner and production deployment model.
+- Production hosting platform and deployment operations, including TLS,
+  secret management, and backup strategy.
 
-## 8. Related documentation
+## 9. Related documentation
 
 - [API contract](./api-contract.md)
 - [Database schema and migration conventions](./database.md)

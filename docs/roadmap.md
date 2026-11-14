@@ -6,7 +6,9 @@ started, or reprioritized.
 ## Done
 
 - Created the Next.js frontend and Express/TypeScript backend workspaces.
-- Added PostgreSQL 16 local infrastructure in `docker-compose.yml`.
+- Added Docker Compose development and production-mode stacks for PostgreSQL,
+  the backend, and the frontend, with separate development and production
+  Dockerfiles for both applications.
 - Added the backend PostgreSQL pool helper and `/health` database check.
 - Added server-side Descope client configuration and bearer session middleware
   with backend tests.
