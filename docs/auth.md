@@ -30,9 +30,10 @@ The authenticated dashboard shows a Google Calendar connection panel in the
 left sidebar. It refreshes the connection status when the dashboard opens,
 supports starting or reconnecting consent, and allows a manual status refresh.
 After consent returns to the dashboard, it automatically refreshes the status.
-The main panel is a presentational chat shell only; chat and calendar event
-operations are not available yet. The logout control is in the lower-left
-sidebar and uses Descope's `useDescope().logout()` API. After logout completes,
+The main panel lists chat threads, opens the most recently updated conversation
+when the dashboard loads, and streams agent responses; chat and calendar event
+operations use the protected backend API. The logout control is in the
+lower-left sidebar and uses Descope's `useDescope().logout()` API. After logout completes,
 it routes the user to `/sign-in`; a failed logout remains on the dashboard and
 displays an error. The separate protected `/connection-test` route remains
 available for testing the connection flow.

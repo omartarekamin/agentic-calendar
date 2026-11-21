@@ -7,8 +7,51 @@ import {
   listUpcomingMeetings,
   rescheduleMeeting,
 } from "./calendar.service.js";
+import {
+  hasExplicitUtcOffset,
+  localDateTimeToIso,
+} from "./calendar-date.js";
 
 const isoDateTimeSchema = z.iso.datetime({ offset: true });
+const localOrOffsetDateTimeSchema = z.union([
+  isoDateTimeSchema,
+  z
+    .string()
+    .regex(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/,
+      "Provide an ISO local datetime or an offset-bearing ISO datetime.",
+    ),
+]);
+
+function hasTimeZoneForLocalRange(input: {
+  startIso: string;
+  endIso: string;
+  timeZone?: string;
+}) {
+  return (
+    (hasExplicitUtcOffset(input.startIso) &&
+      hasExplicitUtcOffset(input.endIso)) ||
+    Boolean(input.timeZone)
+  );
+}
+
+function normalizeRange(input: {
+  startIso: string;
+  endIso: string;
+  timeZone?: string;
+}) {
+  if (!input.timeZone) {
+    return {
+      startIso: localDateTimeToIso(input.startIso, "UTC"),
+      endIso: localDateTimeToIso(input.endIso, "UTC"),
+    };
+  }
+
+  return {
+    startIso: localDateTimeToIso(input.startIso, input.timeZone),
+    endIso: localDateTimeToIso(input.endIso, input.timeZone),
+  };
+}
 
 /**
  * Confirms that a meeting's end instant is later than its start instant.
@@ -89,18 +132,28 @@ export function createCalendarTools(authUserId: string) {
         "Check whether the user's primary Google Calendar is busy between two ISO datetimes.",
       inputSchema: z
         .object({
-          startIso: isoDateTimeSchema.describe("Start time as an ISO-8601 datetime"),
-          endIso: isoDateTimeSchema.describe("End time as an ISO-8601 datetime"),
+          startIso: localOrOffsetDateTimeSchema.describe(
+            "Start time as an offset-bearing ISO datetime or timezone-local ISO datetime",
+          ),
+          endIso: localOrOffsetDateTimeSchema.describe(
+            "End time as an offset-bearing ISO datetime or timezone-local ISO datetime",
+          ),
+          timeZone: timeZoneSchema.optional(),
         })
         .strict()
+        .refine(
+          hasTimeZoneForLocalRange,
+          "Provide timeZone for timezone-local datetimes.",
+        )
         .refine(hasValidTimeRange, timeRangeMessage),
       // Checks availability only in the authenticated user's primary calendar.
-      execute: async ({ startIso, endIso }) =>
-        checkCalendarBusy({
+      execute: async ({ startIso, endIso, timeZone }) => {
+        const range = normalizeRange({ startIso, endIso, timeZone });
+        return checkCalendarBusy({
           authUserId,
-          startIso,
-          endIso,
-        }),
+          ...range,
+        });
+      },
     }),
 
     createMeeting: createTool({
@@ -110,8 +163,13 @@ export function createCalendarTools(authUserId: string) {
       inputSchema: z
         .object({
           title: z.string().trim().min(1),
-          startIso: isoDateTimeSchema.describe("Start time as an ISO-8601 datetime"),
-          endIso: isoDateTimeSchema.describe("End time as an ISO-8601 datetime"),
+          startIso: localOrOffsetDateTimeSchema.describe(
+            "Start time as an offset-bearing ISO datetime or timezone-local ISO datetime",
+          ),
+          endIso: localOrOffsetDateTimeSchema.describe(
+            "End time as an offset-bearing ISO datetime or timezone-local ISO datetime",
+          ),
+          timeZone: timeZoneSchema.optional(),
           attendeeEmails: z
             .array(z.email())
             .optional()
@@ -123,13 +181,20 @@ export function createCalendarTools(authUserId: string) {
             .describe("Default true. Set false to skip a Google Meet link"),
         })
         .strict()
+        .refine(
+          hasTimeZoneForLocalRange,
+          "Provide timeZone for timezone-local datetimes.",
+        )
         .refine(hasValidTimeRange, timeRangeMessage),
       // Creates the requested event for the authenticated user's calendar.
-      execute: async (input) =>
-        createMeeting({
+      execute: async (input) => {
+        const range = normalizeRange(input);
+        return createMeeting({
           authUserId,
           ...input,
-        }),
+          ...range,
+        });
+      },
     }),
 
     rescheduleMeeting: createTool({
@@ -139,17 +204,29 @@ export function createCalendarTools(authUserId: string) {
       inputSchema: z
         .object({
           eventId: z.string().trim().min(1),
-          startIso: isoDateTimeSchema.describe("Start time as an ISO-8601 datetime"),
-          endIso: isoDateTimeSchema.describe("End time as an ISO-8601 datetime"),
+          startIso: localOrOffsetDateTimeSchema.describe(
+            "Start time as an offset-bearing ISO datetime or timezone-local ISO datetime",
+          ),
+          endIso: localOrOffsetDateTimeSchema.describe(
+            "End time as an offset-bearing ISO datetime or timezone-local ISO datetime",
+          ),
+          timeZone: timeZoneSchema.optional(),
         })
         .strict()
+        .refine(
+          hasTimeZoneForLocalRange,
+          "Provide timeZone for timezone-local datetimes.",
+        )
         .refine(hasValidTimeRange, timeRangeMessage),
       // Updates only the event identified by the given user's calendar event ID.
-      execute: async (input) =>
-        rescheduleMeeting({
+      execute: async (input) => {
+        const range = normalizeRange(input);
+        return rescheduleMeeting({
           authUserId,
           ...input,
-        }),
+          ...range,
+        });
+      },
     }),
 
     cancelMeeting: createTool({

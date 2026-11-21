@@ -1,13 +1,17 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardContent } from "./dashboard-content";
+import type { AgentStreamEvent } from "@/lib/api";
 
 const {
   calendarState,
   connectCalendar,
+  listAgentThreads,
+  loadAgentThread,
   logout,
   refreshStatus,
   replace,
+  streamAgentChat,
 } = vi.hoisted(() => ({
   calendarState: {
     calendarConnection: {
@@ -21,15 +25,24 @@ const {
     isAuthenticated: true,
     isCheckingConnection: false,
     isSessionLoading: false,
+    sessionToken: "test-session-token",
   },
   connectCalendar: vi.fn(),
+  listAgentThreads: vi.fn(),
+  loadAgentThread: vi.fn(),
   logout: vi.fn(),
   refreshStatus: vi.fn(),
   replace: vi.fn(),
+  streamAgentChat: vi.fn(),
 }));
 
 vi.mock("@descope/nextjs-sdk/client", () => ({
   useDescope: () => ({ logout }),
+  useSession: () => ({
+    isAuthenticated: true,
+    isSessionLoading: false,
+    sessionToken: "test-session-token",
+  }),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -40,12 +53,27 @@ vi.mock("@/hooks/use-calendar-connection", () => ({
   useCalendarConnection: () => calendarState,
 }));
 
+vi.mock("@/lib/api", () => ({
+  listAgentThreads,
+  loadAgentThread,
+  streamAgentChat,
+}));
+
 describe("DashboardContent", () => {
   beforeEach(() => {
     logout.mockReset();
     replace.mockReset();
     connectCalendar.mockReset();
     refreshStatus.mockReset();
+    listAgentThreads.mockReset();
+    loadAgentThread.mockReset();
+    streamAgentChat.mockReset();
+    listAgentThreads.mockResolvedValue([]);
+    loadAgentThread.mockResolvedValue({
+      threadId: "00000000-0000-4000-8000-000000000001",
+      messages: [],
+    });
+    streamAgentChat.mockResolvedValue(undefined);
     calendarState.calendarConnection = {
       id: "google-calendar",
       name: "Google Calendar",
@@ -57,22 +85,147 @@ describe("DashboardContent", () => {
     calendarState.isAuthenticated = true;
     calendarState.isCheckingConnection = false;
     calendarState.isSessionLoading = false;
+    calendarState.sessionToken = "test-session-token";
   });
 
   afterEach(cleanup);
 
-  it("renders the assistant layout with chat controls disabled", () => {
+  it("renders the assistant layout with chat controls enabled", () => {
     render(<DashboardContent />);
 
     expect(
       screen.getByRole("heading", { name: "Meeting Assistant" }),
     ).toBeInTheDocument();
     expect(screen.getByText("What's on today?")).toBeInTheDocument();
-    expect(screen.getByLabelText("Calendar chat composer")).toBeDisabled();
+    expect(screen.getByLabelText("Calendar chat composer")).toBeEnabled();
     expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "New Chat" })).toBeInTheDocument();
+  });
+
+  it("loads threads and sends a streamed message", async () => {
+    listAgentThreads.mockResolvedValue([
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        title: "Planning",
+        updatedAt: "2026-11-21T12:00:00.000Z",
+      },
+    ]);
+    streamAgentChat.mockImplementation(
+      async (
+        _token: string,
+        _input: { message: string; threadId: string },
+        onEvent: (event: AgentStreamEvent) => void,
+      ) => {
+        onEvent({ type: "started", message: "Agent is planning" });
+        onEvent({ type: "token", token: "You have " });
+        onEvent({ type: "token", token: "a meeting." });
+        onEvent({ type: "completed", message: "done" });
+      },
+    );
+
+    render(<DashboardContent />);
+
+    expect(await screen.findByRole("button", { name: "Planning" })).toBeInTheDocument();
+    const composer = screen.getByLabelText("Calendar chat composer");
+    fireEvent.change(composer, { target: { value: "What's on today?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => {
+      expect(document.body).toHaveTextContent("You have a meeting.");
+    });
+    expect(streamAgentChat).toHaveBeenCalledWith(
+      "test-session-token",
+      expect.objectContaining({
+        message: "What's on today?",
+        threadId: expect.any(String),
+      }),
+      expect.any(Function),
+    );
+  });
+
+  it("restores the most recently updated conversation when the dashboard opens", async () => {
+    listAgentThreads.mockResolvedValue([
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        title: "Planning",
+        updatedAt: "2026-11-21T12:00:00.000Z",
+      },
+    ]);
+    loadAgentThread.mockResolvedValue({
+      threadId: "00000000-0000-4000-8000-000000000001",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "Your saved conversation is back.",
+        },
+      ],
+    });
+
+    render(<DashboardContent />);
+
     expect(
-      screen.queryByRole("button", { name: "New Chat" }),
-    ).not.toBeInTheDocument();
+      await screen.findByText("Your saved conversation is back."),
+    ).toBeInTheDocument();
+    expect(loadAgentThread).toHaveBeenCalledWith(
+      "test-session-token",
+      "00000000-0000-4000-8000-000000000001",
+    );
+  });
+
+  it("renders loaded assistant messages as markdown", async () => {
+    listAgentThreads.mockResolvedValue([
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        title: "Planning",
+        updatedAt: "2026-11-21T12:00:00.000Z",
+      },
+    ]);
+    loadAgentThread.mockResolvedValue({
+      threadId: "00000000-0000-4000-8000-000000000001",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "## Your agenda\n\n- **Project sync** at 10:00",
+        },
+      ],
+    });
+
+    render(<DashboardContent />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Planning" }));
+
+    expect(await screen.findByRole("heading", { name: "Your agenda" })).toBeInTheDocument();
+    expect(screen.getByText("Project sync")).toBeInTheDocument();
+  });
+
+  it("keeps the conversation scroll area constrained with the composer available", async () => {
+    listAgentThreads.mockResolvedValue([
+      {
+        id: "00000000-0000-4000-8000-000000000001",
+        title: "Planning",
+        updatedAt: "2026-11-21T12:00:00.000Z",
+      },
+    ]);
+    loadAgentThread.mockResolvedValue({
+      threadId: "00000000-0000-4000-8000-000000000001",
+      messages: [
+        {
+          id: "assistant-long",
+          role: "assistant",
+          content: "A long response ".repeat(100),
+        },
+      ],
+    });
+
+    render(<DashboardContent />);
+
+    const scrollArea = await screen.findByText(/A long response/);
+    const historyPanel = scrollArea.closest('[data-slot="scroll-area"]');
+
+    expect(historyPanel).toHaveClass("min-h-0");
+    expect(screen.getByLabelText("Calendar chat composer")).toBeInTheDocument();
   });
 
   it("exposes calendar connect and status refresh actions", () => {

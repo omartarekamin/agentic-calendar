@@ -92,6 +92,13 @@ Single instance, one app database. Ordered SQL migrations are stored in
 - The system prompt includes few-shot interaction examples and forbidden
   actions covering fabricated results, ambiguous mutations, cross-user access,
   and credential disclosure.
+- Calendar mutation and availability tools accept timezone-local ISO
+  datetimes plus an IANA timezone, or absolute offset-bearing ISO datetimes.
+  The backend converts timezone-local wall-clock values into UTC instants so
+  the agent cannot miscalculate timezone or daylight-saving offsets.
+- Agent responses use Groq through the AI SDK, configured with the server-side
+  `GROQ_API_KEY`. The default model is `qwen/qwen3.8-27b`; `AI_MODEL`
+  may override it with another Groq-supported model ID.
 - Agent memory uses a local LibSQL file (`mastra.db`), retaining up to 20
   recent messages and resource-scoped meeting preferences. Durable,
   multi-instance production storage and retention behavior still need a
@@ -100,8 +107,9 @@ Single instance, one app database. Ordered SQL migrations are stored in
   PostgreSQL, separately from agent working memory.
 - Meeting operations will use the user's Google Calendar connection so
   successful updates are reflected in Google Calendar.
-- The chat API and user-facing agent workflow are not yet available; see the
-  [API contract](./api-contract.md) for planned chat behavior.
+- The chat API and dashboard agent workflow are available. The frontend lists
+  persisted threads, loads their messages, and streams agent replies through
+  Server-Sent Events.
 - Google Meet links and email invitations are intended meeting capabilities;
   their exact behavior and provider requirements remain to be specified.
 
@@ -151,19 +159,19 @@ protected request and exposes the internal users-table UUID as `req.dbUserId`.
 
 All routes except `/health` require a valid Bearer token. Errors use `{ "error": { "code": string, "message": string } }`.
 
-| Method | Path                                    | Purpose                                  |
-| ------ | --------------------------------------- | ---------------------------------------- |
-| GET    | `/health`                               | Liveness check                           |
-| POST   | `/api/connections/connect`              | Start Google Calendar OAuth consent flow |
-| GET    | `/api/connections/calendar-connection`  | Get stored calendar connection status    |
-| POST   | `/api/connections/refresh-status`       | Refresh status from Descope tokens        |
-| GET    | `/api/events?from&to`                   | List the user's events in a range         |
-| POST   | `/api/events`                           | Create an event                           |
-| PATCH  | `/api/events/:id`                       | Update an event                           |
-| DELETE | `/api/events/:id`                       | Delete an event                           |
-| GET    | `/api/agents/threads`                   | List the user's agent threads             |
-| GET    | `/api/agents/threads/:threadId`         | Get messages in the user's thread         |
-| POST   | `/api/agents/chat`                      | Send a message and stream agent events    |
+| Method | Path                                   | Purpose                                  |
+| ------ | -------------------------------------- | ---------------------------------------- |
+| GET    | `/health`                              | Liveness check                           |
+| POST   | `/api/connections/connect`             | Start Google Calendar OAuth consent flow |
+| GET    | `/api/connections/calendar-connection` | Get stored calendar connection status    |
+| POST   | `/api/connections/refresh-status`      | Refresh status from Descope tokens       |
+| GET    | `/api/events?from&to`                  | List the user's events in a range        |
+| POST   | `/api/events`                          | Create an event                          |
+| PATCH  | `/api/events/:id`                      | Update an event                          |
+| DELETE | `/api/events/:id`                      | Delete an event                          |
+| GET    | `/api/agents/threads`                  | List the user's agent threads            |
+| GET    | `/api/agents/threads/:threadId`        | Get messages in the user's thread        |
+| POST   | `/api/agents/chat`                     | Send a message and stream agent events   |
 
 ## 5. Key decisions
 
@@ -175,8 +183,8 @@ All routes except `/health` require a valid Bearer token. Errors use `{ "error":
 
 ## 6. Local development
 
-1. Create `backend/.env` and `frontend/.env.local` (see `AGENTS.md` for
-   variables).
+1. Create `backend/.env` with `GROQ_API_KEY` and the other backend values, and
+   create `frontend/.env.local` (see `AGENTS.md` for the variable list).
 2. Run `docker compose up --build` from the repository root. This starts
    PostgreSQL, the backend, the frontend, and Adminer. The backend waits for
    PostgreSQL, applies pending migrations, and then starts its development
@@ -187,6 +195,10 @@ All routes except `/health` require a valid Bearer token. Errors use `{ "error":
 
 The development services use `backend/Dockerfile.dev` and
 `frontend/Dockerfile.dev`; source directories are mounted for hot reload.
+The backend development container keeps dependencies in a dedicated
+`backend_node_modules` volume and runs `npm ci --include=dev` before migrations
+and startup. This prevents stale container dependencies after `package.json`
+or `package-lock.json` changes.
 
 ## 7. Production containers
 
@@ -214,7 +226,6 @@ configured for the chosen deployment platform.
   synchronization/error behavior.
 - Conversation schema, retention/deletion policy, and separation of persisted
   chat history from Mastra working memory.
-- Which LLM provider and model for the agent?
 - Meeting mutation confirmation policy, especially for cancellations and
   ambiguous natural-language requests.
 - Google Meet and email invitation provider behavior and required permissions.

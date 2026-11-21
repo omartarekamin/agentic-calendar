@@ -10,15 +10,47 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { useCalendarConnection } from "@/hooks/use-calendar-connection";
+import {
+  listAgentThreads,
+  loadAgentThread,
+  streamAgentChat,
+  type AgentStreamEvent,
+  type ThreadMessage,
+  type ThreadSummary,
+} from "@/lib/api";
 import { paths } from "@/lib/paths";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { MarkdownMessage } from "./components/markdown-message";
 
 const suggestedPrompts = [
   "What's on today?",
   "Find a free slot tomorrow morning",
   "Create a 30-min sync with Meet",
 ];
+
+function createThreadId(): string {
+  if (
+    typeof globalThis.crypto !== "undefined" &&
+    typeof globalThis.crypto.randomUUID === "function"
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+}
 
 export function DashboardContent() {
   const sdk = useDescope();
@@ -31,9 +63,230 @@ export function DashboardContent() {
     isAuthenticated,
     isCheckingConnection,
     isSessionLoading,
+    sessionToken,
   } = useCalendarConnection();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [messages, setMessages] = useState<ThreadMessage[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [isThreadsLoading, setIsThreadsLoading] = useState(false);
+  const [isThreadLoading, setIsThreadLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamStatus, setStreamStatus] = useState("");
+  const [chatError, setChatError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasChosenThreadRef = useRef(false);
+  const threadLoadRequestRef = useRef(0);
+
+  const refreshThreads = useCallback(async (): Promise<ThreadSummary[] | null> => {
+    if (!sessionToken) return null;
+
+    setIsThreadsLoading(true);
+    try {
+      const loadedThreads = await listAgentThreads(sessionToken);
+      setThreads(loadedThreads);
+      return loadedThreads;
+    } catch (error) {
+      setChatError(
+        error instanceof Error
+          ? error.message
+          : "The conversation list could not be loaded.",
+      );
+      return null;
+    } finally {
+      setIsThreadsLoading(false);
+    }
+  }, [sessionToken]);
+
+  useEffect(() => {
+    if (isSessionLoading || !isAuthenticated || !sessionToken) return;
+
+    let cancelled = false;
+    async function loadRecentThread() {
+      const loadedThreads = await refreshThreads();
+      const recentThread = loadedThreads?.[0];
+      if (cancelled || !recentThread || hasChosenThreadRef.current) return;
+
+      hasChosenThreadRef.current = true;
+      const requestId = ++threadLoadRequestRef.current;
+      setIsThreadLoading(true);
+      try {
+        const result = await loadAgentThread(sessionToken, recentThread.id);
+        if (cancelled || requestId !== threadLoadRequestRef.current) return;
+        setActiveThreadId(result.threadId);
+        setMessages(result.messages);
+      } catch (error) {
+        if (cancelled || requestId !== threadLoadRequestRef.current) return;
+        setChatError(
+          error instanceof Error
+            ? error.message
+            : "The conversation could not be loaded.",
+        );
+      } finally {
+        if (!cancelled && requestId === threadLoadRequestRef.current) {
+          setIsThreadLoading(false);
+        }
+      }
+    }
+
+    void loadRecentThread();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isSessionLoading, refreshThreads, sessionToken]);
+
+  useEffect(() => {
+    if (typeof messagesEndRef.current?.scrollIntoView === "function") {
+      messagesEndRef.current.scrollIntoView({ block: "nearest" });
+    }
+  }, [messages]);
+
+  async function handleSelectThread(thread: ThreadSummary) {
+    if (!sessionToken || isStreaming) return;
+
+    hasChosenThreadRef.current = true;
+    const requestId = ++threadLoadRequestRef.current;
+    setChatError(null);
+    setStreamStatus("");
+    setIsThreadLoading(true);
+    try {
+      const result = await loadAgentThread(sessionToken, thread.id);
+      if (requestId !== threadLoadRequestRef.current) return;
+      setActiveThreadId(result.threadId);
+      setMessages(result.messages);
+    } catch (error) {
+      if (requestId !== threadLoadRequestRef.current) return;
+      setChatError(
+        error instanceof Error
+          ? error.message
+          : "The conversation could not be loaded.",
+      );
+    } finally {
+      if (requestId === threadLoadRequestRef.current) {
+        setIsThreadLoading(false);
+      }
+    }
+  }
+
+  function handleNewChat() {
+    if (isStreaming) return;
+    hasChosenThreadRef.current = true;
+    threadLoadRequestRef.current += 1;
+    setActiveThreadId(createThreadId());
+    setMessages([]);
+    setDraft("");
+    setChatError(null);
+    setStreamStatus("");
+    setIsThreadLoading(false);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await sendMessage();
+  }
+
+  async function sendMessage(messageText = draft) {
+    const message = messageText.trim();
+    if (
+      !sessionToken ||
+      !message ||
+      isStreaming ||
+      isThreadLoading ||
+      message.length > 5000
+    ) {
+      return;
+    }
+
+    hasChosenThreadRef.current = true;
+    threadLoadRequestRef.current += 1;
+    const threadId = activeThreadId ?? createThreadId();
+    setActiveThreadId(threadId);
+    setDraft("");
+    setChatError(null);
+    setIsStreaming(true);
+    setStreamStatus("Thinking...");
+    setMessages((current) => [
+      ...current,
+      {
+        id: globalThis.crypto?.randomUUID?.() ?? `user-${Date.now()}`,
+        role: "user",
+        content: message,
+      },
+    ]);
+    setMessages((current) => [
+      ...current,
+      {
+        id: globalThis.crypto?.randomUUID?.() ?? `assistant-${Date.now()}`,
+        role: "assistant",
+        content: "",
+      },
+    ]);
+
+    let receivedToken = false;
+    try {
+      await streamAgentChat(
+        sessionToken,
+        { message, threadId },
+        (event: AgentStreamEvent) => {
+          if (event.type === "started") {
+            setStreamStatus(event.message ?? "Agent is planning");
+          } else if (event.type === "progress") {
+            setStreamStatus(event.message ?? "Running tool");
+          } else if (event.type === "token" && event.token) {
+            receivedToken = true;
+            setStreamStatus("Streaming...");
+            setMessages((current) =>
+              current.map((item, index) =>
+                index === current.length - 1
+                  ? { ...item, content: `${item.content}${event.token}` }
+                  : item,
+              ),
+            );
+          } else if (event.type === "error") {
+            throw new Error(event.message ?? "The agent request failed.");
+          }
+        },
+      );
+
+      if (!receivedToken) {
+        setMessages((current) =>
+          current.map((item, index) =>
+            index === current.length - 1
+              ? { ...item, content: "The agent did not return a response." }
+              : item,
+          ),
+        );
+      }
+      await refreshThreads();
+      setChatError(null);
+      setStreamStatus("");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "The agent request failed.";
+      setChatError(message);
+      setStreamStatus("");
+      setMessages((current) =>
+        current.map((item, index) =>
+          index === current.length - 1 && item.content === ""
+            ? { ...item, content: "I couldn't complete that request." }
+            : item,
+        ),
+      );
+    } finally {
+      setIsStreaming(false);
+    }
+  }
+
+  function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void sendMessage();
+    }
+  }
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -70,10 +323,16 @@ export function DashboardContent() {
             <span className="font-heading text-lg font-semibold">Meet Agent</span>
           </div>
 
-          <div className="mt-5 flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground">
+          <button
+            type="button"
+            onClick={handleNewChat}
+            disabled={isStreaming}
+            aria-label="New Chat"
+            className="mt-5 flex w-full items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
             <Plus aria-hidden="true" className="size-4" />
             <span>New Chat</span>
-          </div>
+          </button>
         </div>
 
         <section className="px-3 pb-4" aria-labelledby="connections-heading">
@@ -141,9 +400,34 @@ export function DashboardContent() {
           >
             Chats
           </h2>
-          <p className="mt-4 text-xs leading-5 text-muted-foreground">
-            No chats yet. Chat is coming soon.
-          </p>
+          {isThreadsLoading ? (
+            <p className="mt-4 text-xs leading-5 text-muted-foreground">
+              Loading chats...
+            </p>
+          ) : threads.length === 0 ? (
+            <p className="mt-4 text-xs leading-5 text-muted-foreground">
+              No chats yet. Start a conversation below.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-1">
+              {threads.map((thread) => (
+                <button
+                  key={thread.id}
+                  type="button"
+                  onClick={() => void handleSelectThread(thread)}
+                  disabled={isStreaming || isThreadLoading}
+                  className={`w-full truncate rounded-lg px-2.5 py-2 text-left text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 ${
+                    activeThreadId === thread.id
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                  title={thread.title}
+                >
+                  {thread.title}
+                </button>
+              ))}
+            </div>
+          )}
         </section>
 
         <footer className="border-t border-border px-4 py-3">
@@ -173,47 +457,112 @@ export function DashboardContent() {
           </p>
         </header>
 
-        <section className="flex flex-1 flex-col items-center justify-center px-5 py-12 text-center">
-          <span className="flex size-11 items-center justify-center rounded-2xl border border-border bg-card text-foreground">
-            <Sparkles aria-hidden="true" className="size-5" />
-          </span>
-          <h2 className="mt-4 font-heading text-3xl font-semibold tracking-tight">
-            Meeting Assistant
-          </h2>
-          <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-            Connect Google Calendar, then ask about today&apos;s agenda, create a
-            Meet, or reschedule something.
-          </p>
-          <div className="mt-6 flex max-w-3xl flex-wrap justify-center gap-2">
-            {suggestedPrompts.map((prompt) => (
-              <span
-                key={prompt}
-                className="rounded-full border border-border bg-card/80 px-3 py-1.5 text-xs text-muted-foreground"
-              >
-                {prompt}
-              </span>
-            ))}
-          </div>
-        </section>
+        {isThreadLoading && messages.length === 0 ? (
+          <section
+            aria-live="polite"
+            className="flex flex-1 items-center justify-center px-5 py-12 text-sm text-muted-foreground"
+          >
+            Loading conversation...
+          </section>
+        ) : messages.length === 0 ? (
+          <section className="flex flex-1 flex-col items-center justify-center px-5 py-12 text-center">
+            <span className="flex size-11 items-center justify-center rounded-2xl border border-border bg-card text-foreground">
+              <Sparkles aria-hidden="true" className="size-5" />
+            </span>
+            <h2 className="mt-4 font-heading text-3xl font-semibold tracking-tight">
+              Meeting Assistant
+            </h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+              Connect Google Calendar, then ask about today&apos;s agenda, create a
+              Meet, or reschedule something.
+            </p>
+            <div className="mt-6 flex max-w-3xl flex-wrap justify-center gap-2">
+              {suggestedPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => void sendMessage(prompt)}
+                  disabled={!sessionToken || isStreaming || isThreadLoading}
+                  className="rounded-full border border-border bg-card/80 px-3 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <ScrollArea className="min-h-0 flex-1 px-5 py-6">
+            <div className="mx-auto flex max-w-3xl flex-col gap-3">
+              {messages.map((message) =>
+                message.role === "system" ? null : (
+                  <div
+                    key={message.id}
+                    className={`message-enter max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 ${
+                      message.role === "user"
+                        ? "ml-auto bg-primary text-primary-foreground"
+                        : "mr-auto border border-border bg-card text-card-foreground"
+                    }`}
+                  >
+                    {message.content ? (
+                      <MarkdownMessage
+                        content={message.content}
+                        tone={message.role === "assistant" ? "assistant" : "user"}
+                      />
+                    ) : (
+                      <span aria-live="polite">
+                        {isStreaming ? "Thinking..." : "\u00a0"}
+                      </span>
+                    )}
+                  </div>
+                ),
+              )}
+              {streamStatus && (
+                <p aria-live="polite" className="text-xs text-muted-foreground">
+                  {streamStatus}
+                </p>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+        )}
 
         <div className="border-t border-border/70 px-4 py-4 sm:px-6">
-          <div className="mx-auto flex max-w-xl items-end gap-3 rounded-2xl border border-border bg-card p-2.5 shadow-sm">
+          {chatError && (
+            <p role="alert" className="mx-auto mb-2 max-w-xl text-xs text-destructive">
+              {chatError}
+            </p>
+          )}
+          <form
+            onSubmit={handleSubmit}
+            className="mx-auto flex max-w-xl items-end gap-3 rounded-2xl border border-border bg-card p-2.5 shadow-sm"
+          >
             <textarea
               aria-label="Calendar chat composer"
-              disabled
-              placeholder="Chat is coming soon..."
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              disabled={!sessionToken || isStreaming || isThreadLoading}
+              placeholder={
+                isStreaming ? "Agent is responding..." : "Ask about your calendar..."
+              }
               rows={1}
               className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
             />
             <button
-              type="button"
-              disabled
+              type="submit"
+              disabled={
+                !sessionToken ||
+                isStreaming ||
+                isThreadLoading ||
+                !draft.trim() ||
+                draft.trim().length > 5000
+              }
               aria-label="Send message"
-              className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground opacity-60"
+              className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
               <ArrowUp aria-hidden="true" className="size-4" />
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </main>

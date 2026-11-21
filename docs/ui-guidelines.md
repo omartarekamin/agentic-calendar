@@ -44,6 +44,11 @@ already implemented.
   themes.
 - Keep animation subtle and purposeful. Respect reduced-motion preferences
   when adding non-essential motion.
+- Render chat message content with `MarkdownMessage` so assistant and user
+  responses support readable headings, lists, emphasis, links, quotes, and
+  code while retaining the appropriate message-bubble tone.
+- Keep chat history in a constrained, independently scrollable flex region so
+  long responses do not push the conversation composer out of view.
 
 ## Loading, empty, and error states
 

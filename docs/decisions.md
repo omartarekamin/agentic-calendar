@@ -34,6 +34,14 @@ Convert to local time only for display in the UI.
 Validate HTTP input, environment configuration, and future agent tool input
 with Zod so untrusted data is checked before entering application logic.
 
+### Calendar wall times use the timezone-aware tool boundary
+
+When a calendar request specifies a local wall-clock time, the agent passes
+timezone-local ISO datetimes and an IANA timezone. The backend converts those
+values to absolute UTC instants with daylight-saving rules; it does not rely
+on the model to calculate offsets. Explicit offset-bearing ISO datetimes remain
+valid for callers that already provide an absolute instant.
+
 ### Agent prompts use examples and explicit action boundaries
 
 The calendar agent prompt includes few-shot examples for tool use and response
@@ -41,6 +49,11 @@ style, plus explicit prohibitions against fabricated results, ambiguous
 calendar mutations, cross-user access, and credential disclosure. A vague or
 ambiguous mutation must not be executed; the specific confirmation policy for
 otherwise clear mutations remains undecided.
+
+### Groq is the calendar agent's LLM provider
+
+The backend uses the Groq AI SDK provider with `GROQ_API_KEY` and defaults to
+`qwen/qwen3.8-27b`. `AI_MODEL` can select another Groq-supported model.
 
 ### Frontend stack and component variant
 
@@ -68,7 +81,6 @@ implemented. Their detailed behavior remains subject to the open questions in
 
 ## Not decided
 
-- LLM provider and model.
 - Confirmation of the proposed Server-Sent Events protocol for chat in
   [api-contract.md](./api-contract.md).
 - Confirmation requirements and conflict handling for agent-proposed

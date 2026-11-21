@@ -17,14 +17,17 @@ started, or reprioritized.
   APIs backed by Descope Outbound Apps and PostgreSQL status metadata.
 - Added the Descope frontend provider and sign-in flow component.
 - Added dashboard logout functionality.
-- Added the dashboard layout shell with Google Calendar connection controls;
-  chat and calendar-event actions remain presentational or unavailable.
+- Added the dashboard layout shell with Google Calendar connection controls,
+  thread history, streamed chat, and loading/error states.
 - Added initial Mastra calendar tools, local LibSQL working memory, and
   few-shot system instructions with explicit forbidden actions.
+- Configured the calendar agent to use Groq with a tool-capable default model.
 - Added protected agent thread and chat routers using `createAgentRouter()`,
   with thread lookup scoped to the authenticated Descope user and injected
   service/session dependencies for tests. Production-grade shared memory
   storage remains unimplemented.
+- Added dashboard integration for thread history, chat loading, and streamed
+  agent responses using the typed frontend API client.
 - Established the initial frontend Tailwind v4, shadcn Base UI, and theme
   token setup.
 - Documented architecture, frontend best practices/performance, API contract,
@@ -32,8 +35,8 @@ started, or reprioritized.
 
 ## In progress
 
-- Agent routes and initial Mastra agent modules are present; they still require
-  full user-workflow integration and testing.
+- Agent routes and initial Mastra agent modules are present and connected to
+  the dashboard; they still require broader end-to-end workflow testing.
 - Product implementation remains early: calendar event REST operations,
   persisted PostgreSQL conversations, and MCP tools are not implemented.
 
@@ -58,7 +61,7 @@ started, or reprioritized.
 ## Later / decisions needed
 
 - Define Google Calendar scopes, sync conflicts, and connection lifecycle.
-- Choose the LLM provider/model and chat-history storage/retention design.
+- Finalize chat-history storage/retention design.
 - Define chat streaming protocol and agent action confirmation UX.
 - Specify Google Meet/email invite behavior and MCP transport/client
   authorization.

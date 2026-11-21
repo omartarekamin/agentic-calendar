@@ -49,7 +49,15 @@ export function MarkdownMessage({
           ol: ({ children }) => <ol className={styles.ol}>{children}</ol>,
           li: ({ children }) => <li className={styles.li}>{children}</li>,
           strong: ({ children }) => (
-            <strong className={styles.strong}>{children}</strong>
+            <strong
+              className={
+                tone === "user"
+                  ? "font-semibold text-primary-foreground"
+                  : styles.strong
+              }
+            >
+              {children}
+            </strong>
           ),
           em: ({ children }) => <em className={styles.em}>{children}</em>,
           code: ({ children, className: codeClassName }) => {

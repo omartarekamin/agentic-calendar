@@ -10,6 +10,9 @@ function testPromptIncludesExamplesAndForbiddenActions() {
   assert.match(instructions, /Forbidden actions:/);
   assert.match(instructions, /Never claim that an event was created/);
   assert.match(instructions, /Never reveal, request, or include session tokens/);
+  assert.match(instructions, /ask one concise question per response/);
+  assert.match(instructions, /always provide timeZone/);
+  assert.match(instructions, /Never guess UTC conversion/);
 }
 
 test(

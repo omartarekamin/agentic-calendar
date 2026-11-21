@@ -61,7 +61,7 @@ function getErrorMessage(payload: unknown, status: number): string {
     return payload.error.message;
   }
 
-  return `Calendar connection request failed (${status}).`;
+  return `Request failed (${status}).`;
 }
 
 async function postConnectionRequest(

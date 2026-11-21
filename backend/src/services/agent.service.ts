@@ -1,10 +1,4 @@
-// const groq = createOpenAI({
-//   apiKey: process.env.GROQ_API_KEY,
-//   baseURL: "https://api.groq.com/openai/v1",
-// });
-
-// const MODEL_NAME = "llama-3.3-70b-versatile";
-
+import { groq } from "@ai-sdk/groq";
 import { Agent } from "@mastra/core/agent";
 import { createAgentMemory } from "../config/memory.js";
 import { getAgentInstructions } from "../config/agent-instructions.js";
@@ -37,7 +31,7 @@ export type ThreadMessage = {
 };
 
 function modelName() {
-  return `openai/${process.env.AI_MODEL ?? "gpt-4o-mini"}`;
+  return process.env.AI_MODEL ?? "qwen/qwen3.8-27b";
 }
 
 function messageText(content: unknown): string {
@@ -129,8 +123,8 @@ export async function getThreadMessages(
 }
 
 export async function streamAgentReply(input: StreamAgentReplyInput) {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is not set env");
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error("GROQ_API_KEY is not set");
   }
 
   input.onEvent({
@@ -144,7 +138,7 @@ export async function streamAgentReply(input: StreamAgentReplyInput) {
     id: "metting-assistant",
     name: "Meeting Assitant",
     instructions: getAgentInstructions(),
-    model: modelName(),
+    model: groq(modelName()),
     tools: createCalendarTools(input.authUserId),
     memory,
   });

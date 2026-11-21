@@ -7,11 +7,12 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "migrate": "tsx src/db/migrate.ts",
-    "test": "node --import tsx --test --test-concurrency=1 src/middleware/requireSession.test.ts src/routes/connection.routes.test.ts src/services/connection.service.test.ts src/config/agent-instructions.test.ts src/services/calendar-date.test.ts",
+    "test": "node --import tsx --test --test-concurrency=1 src/middleware/requireSession.test.ts src/routes/connection.routes.test.ts src/services/connection.service.test.ts src/config/agent-instructions.test.ts src/services/calendar-date.test.ts src/services/agent.service.test.ts",
     "start": "node dist/index.js"
   },
   "type": "module",
   "dependencies": {
+    "@ai-sdk/groq": "^4.0.86",
     "@descope/node-sdk": "^2.21.0",
     "@mastra/core": "^1.85.0",
     "@mastra/libsql": "^1.31.1",
