@@ -149,6 +149,12 @@ export async function streamAgentReply(input: StreamAgentReplyInput) {
       resource: input.authUserId,
       thread: input.threadId,
     },
+    onFinish: () => {
+      input.onEvent({
+        type: "completed",
+        message: "done",
+      });
+    },
   });
 
   for await (const chunk of result.fullStream) {
@@ -173,8 +179,6 @@ export async function streamAgentReply(input: StreamAgentReplyInput) {
     }
   }
 
-  // streaming finsihes
-
   const thread = await memory.getThreadById({
     threadId: input.threadId,
     resourceId: input.authUserId,
@@ -187,9 +191,4 @@ export async function streamAgentReply(input: StreamAgentReplyInput) {
       metadata: thread.metadata ?? {},
     });
   }
-
-  input.onEvent({
-    type: "completed",
-    message: "done",
-  });
 }
