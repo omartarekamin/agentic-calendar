@@ -229,44 +229,81 @@ Delete the authenticated user's event.
 
 No response body.
 
-### `POST /api/chat`
+### `GET /api/agents/threads`
 
-Send a message to the calendar agent. This endpoint is planned; streaming
-behavior and confirmation rules must be finalized before implementation.
+Protected. Lists up to 30 of the authenticated user's agent conversation
+threads, ordered by their latest update.
+
+**Success — `200 OK`**
+
+```json
+{
+  "threads": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "title": "Planning",
+      "updatedAt": "2026-11-21T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+### `GET /api/agents/threads/:threadId`
+
+Protected. Returns the messages in an authenticated user's thread.
+The thread ID must be a valid UUID.
+
+**Success — `200 OK`**
+
+```json
+{
+  "threadId": "00000000-0000-4000-8000-000000000001",
+  "messages": [
+    {
+      "id": "message-1",
+      "role": "user",
+      "content": "What do I have on Friday?"
+    }
+  ]
+}
+```
+
+An invalid thread ID is `400`; a thread that is absent or belongs to another
+user is reported as a thread lookup failure.
+
+### `POST /api/agents/chat`
+
+Protected. Sends a message to the calendar agent and streams its events using
+Server-Sent Events (`Content-Type: text/event-stream`). The frontend sends the
+Bearer token with the POST request.
 
 **Request — `application/json`**
 
 ```json
 {
-  "message": "What do I have on Friday?"
+  "message": "What do I have on Friday?",
+  "threadId": "00000000-0000-4000-8000-000000000001"
 }
 ```
 
-`message` is required. Conversation persistence and identifiers are not
-implemented or decided yet.
+Both fields are required. `message` must contain 1–5000 characters and
+`threadId` must be a valid UUID.
 
-**Proposed success — `200 OK`**
+**Success — `200 OK`**
 
-The response uses Server-Sent Events (`Content-Type: text/event-stream`). The
-frontend sends this POST with `fetch` so it can include the bearer token.
-
-```text
-event: delta
-data: {"text":"You have a planning meeting"}
-
-event: done
-data: {}
-```
-
-If a failure occurs after streaming starts, send the standard error envelope
-as an `error` event, then close the stream:
+Each event is written as a JSON `data:` record:
 
 ```text
-event: error
-data: {"error":{"code":"INTERNAL_ERROR","message":"The request could not be completed"}}
+data: {"type":"started","message":"Agent is planning"}
+
+data: {"type":"token","token":"You have a planning meeting"}
+
+data: {"type":"completed","message":"done"}
 ```
 
-This stream format is proposed and must be confirmed before implementation.
+Progress events use `{"type":"progress","message":"Running <tool-name>"}`.
+If streaming fails, the route emits
+`{"type":"error","message":"<safe error message>"}` and closes the stream.
 
 ## Error status codes
 

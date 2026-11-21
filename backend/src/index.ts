@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { getPool } from './db/pool.js';
 import { createConnectionRouter } from './routes/connection.routes.js';
+import { createAgentRouter } from './routes/agent.routes.js';
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -27,6 +28,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use('/api/connections', createConnectionRouter());
+app.use('/api/agents', createAgentRouter());
 
 app.get("/health", async (req, res) => {
     try {

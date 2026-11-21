@@ -19,6 +19,12 @@ started, or reprioritized.
 - Added dashboard logout functionality.
 - Added the dashboard layout shell with Google Calendar connection controls;
   chat and calendar-event actions remain presentational or unavailable.
+- Added initial Mastra calendar tools, local LibSQL working memory, and
+  few-shot system instructions with explicit forbidden actions.
+- Added protected agent thread and chat routers using `createAgentRouter()`,
+  with thread lookup scoped to the authenticated Descope user and injected
+  service/session dependencies for tests. Production-grade shared memory
+  storage remains unimplemented.
 - Established the initial frontend Tailwind v4, shadcn Base UI, and theme
   token setup.
 - Documented architecture, frontend best practices/performance, API contract,
@@ -26,9 +32,10 @@ started, or reprioritized.
 
 ## In progress
 
-- No implementation task is currently recorded as actively in progress.
-- Product implementation remains early: calendar event operations, agent
-  workflows, persisted conversations, and MCP tools are not implemented.
+- Agent routes and initial Mastra agent modules are present; they still require
+  full user-workflow integration and testing.
+- Product implementation remains early: calendar event REST operations,
+  persisted PostgreSQL conversations, and MCP tools are not implemented.
 
 ## Next
 

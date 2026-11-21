@@ -38,6 +38,11 @@ describe("ConnectionTestContent", () => {
   beforeEach(() => {
     outboundConnect.mockReset();
     refreshCalendarConnectionStatus.mockReset();
+    refreshCalendarConnectionStatus.mockResolvedValue({
+      id: "google-calendar",
+      name: "Google Calendar",
+      status: "disconnected",
+    });
     redirectToAuthorizationUrl.mockReset();
     startCalendarConnection.mockReset();
     session.sessionToken = "test-session-token";
@@ -61,6 +66,13 @@ describe("ConnectionTestContent", () => {
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
     render(<ConnectionTestContent />);
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: "Start Google Calendar connection",
+        }),
+      ).toBeEnabled();
+    });
     fireEvent.click(
       screen.getByRole("button", { name: "Start Google Calendar connection" }),
     );
@@ -78,7 +90,7 @@ describe("ConnectionTestContent", () => {
     );
     expect(screen.getByText("Google Calendar status: pending")).toBeInTheDocument();
     expect(infoSpy).toHaveBeenCalledWith(
-      "[calendar-test] Google Calendar consent started",
+      "[calendar-connection] Google Calendar consent started",
       { status: "pending" },
     );
     expect(JSON.stringify(infoSpy.mock.calls)).not.toContain(
@@ -127,6 +139,13 @@ describe("ConnectionTestContent", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     render(<ConnectionTestContent />);
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: "Start Google Calendar connection",
+        }),
+      ).toBeEnabled();
+    });
     fireEvent.click(
       screen.getByRole("button", { name: "Start Google Calendar connection" }),
     );
@@ -163,6 +182,13 @@ describe("ConnectionTestContent", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     render(<ConnectionTestContent />);
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: "Start Google Calendar connection",
+        }),
+      ).toBeEnabled();
+    });
     fireEvent.click(
       screen.getByRole("button", { name: "Start Google Calendar connection" }),
     );

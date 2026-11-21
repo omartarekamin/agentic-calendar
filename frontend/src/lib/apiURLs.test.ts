@@ -11,7 +11,9 @@ describe("createApiURLs", () => {
       calendarConnectionRefreshStatus:
         "https://api.example.com/api/connections/refresh-status",
       events: "https://api.example.com/api/events",
-      chat: "https://api.example.com/api/chat",
+      agentThreads: "https://api.example.com/api/agents/threads",
+      agentThread: "https://api.example.com/api/agents/threads",
+      agentChat: "https://api.example.com/api/agents/chat",
     });
   });
 

@@ -34,6 +34,14 @@ Convert to local time only for display in the UI.
 Validate HTTP input, environment configuration, and future agent tool input
 with Zod so untrusted data is checked before entering application logic.
 
+### Agent prompts use examples and explicit action boundaries
+
+The calendar agent prompt includes few-shot examples for tool use and response
+style, plus explicit prohibitions against fabricated results, ambiguous
+calendar mutations, cross-user access, and credential disclosure. A vague or
+ambiguous mutation must not be executed; the specific confirmation policy for
+otherwise clear mutations remains undecided.
+
 ### Frontend stack and component variant
 
 The frontend uses Next.js App Router, React, Tailwind CSS v4, and shadcn/ui

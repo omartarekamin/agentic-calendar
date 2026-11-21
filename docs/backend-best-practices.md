@@ -36,6 +36,12 @@ routes/ -> services/ -> db/
 - Validate every external input with Zod: request bodies, query parameters,
   path parameters, environment variables, and future agent tool inputs.
 - Validate once at the boundary, then pass typed values into services.
+- Agent prompts should use concrete examples to demonstrate expected tool
+  selection and response style. State forbidden actions explicitly, and never
+  claim a tool-backed operation succeeded unless the tool returned success.
+- Agent tools must close over identity obtained from trusted server context;
+  never accept a user identity as a model-controlled tool argument. Validate
+  timestamps, ranges, and other tool inputs before calling services.
 - Load environment configuration centrally (for example `src/config.ts`),
   validate it at startup, and avoid reading `process.env` from arbitrary
   modules.
@@ -82,5 +88,8 @@ routes/ -> services/ -> db/
 
 The backend contains an Express bootstrap, PostgreSQL pool, initial users
 repository and SQL migration runner, Descope client configuration, and session
-middleware. Protected application routes, a service layer, and central error
-handler remain to be implemented.
+middleware. Initial Google Calendar service and Mastra tool modules are also
+present. Protected connection and agent routers are factory-created by
+`createConnectionRouter()` and `createAgentRouter()` so route dependencies and
+session middleware can be injected in tests. Calendar REST event routes remain
+to be implemented.

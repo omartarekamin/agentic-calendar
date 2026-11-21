@@ -9,7 +9,9 @@ export function createApiURLs(baseUrl: string) {
     calendarConnection: `${normalizedBaseUrl}/api/connections/calendar-connection`,
     calendarConnectionRefreshStatus: `${normalizedBaseUrl}/api/connections/refresh-status`,
     events: `${normalizedBaseUrl}/api/events`,
-    chat: `${normalizedBaseUrl}/api/chat`,
+    agentThreads: `${normalizedBaseUrl}/api/agents/threads`,
+    agentThread: `${normalizedBaseUrl}/api/agents/threads`,
+    agentChat: `${normalizedBaseUrl}/api/agents/chat`,
   };
 }
 

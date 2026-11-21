@@ -47,10 +47,10 @@ Express API (Node.js)
 ```
 src/
   index.ts          app bootstrap, listen
-  config/           descope.ts (server-side Descope client)
+  config/           descope.ts, agent-instructions.ts, memory.ts
   middleware/       requireSession.ts (Descope), error-handler.ts
   routes/           connection.routes.ts, events.ts, chat.ts, health.ts
-  services/         connection.service.ts, event-service.ts (shared with agent tools)
+  services/         connection.service.ts, calendar.service.ts, agent-tools.service.ts
   db/               pool.ts, user.repository.ts, migrate.ts
   sql/              ordered SQL migrations
   agent/            Mastra agent, tools, and working memory
@@ -78,17 +78,30 @@ Single instance, one app database. Ordered SQL migrations are stored in
   The backend checks Descope for the user's token when status is refreshed.
   Calendar tokens remain in Descope.
 
-### Agent (Mastra, not installed yet)
+### Agent (Mastra, initial modules added)
 
 - The agent will support listing, creating, rescheduling, and cancelling
   meetings from natural-language requests.
 - Tools call the shared service layer, never raw SQL, and receive the
   authenticated user identity from trusted request context, never from the
   model.
+- The backend has initial Mastra calendar tools for listing events, checking
+  busy intervals, creating meetings, rescheduling, and cancelling. The tool
+  factory closes over the authenticated Descope user ID, and validates tool
+  inputs with Zod.
+- The system prompt includes few-shot interaction examples and forbidden
+  actions covering fabricated results, ambiguous mutations, cross-user access,
+  and credential disclosure.
+- Agent memory uses a local LibSQL file (`mastra.db`), retaining up to 20
+  recent messages and resource-scoped meeting preferences. Durable,
+  multi-instance production storage and retention behavior still need a
+  deployment decision.
 - Responses will stream to the frontend. Conversation history will persist in
   PostgreSQL, separately from agent working memory.
 - Meeting operations will use the user's Google Calendar connection so
   successful updates are reflected in Google Calendar.
+- The chat API and user-facing agent workflow are not yet available; see the
+  [API contract](./api-contract.md) for planned chat behavior.
 - Google Meet links and email invitations are intended meeting capabilities;
   their exact behavior and provider requirements remain to be specified.
 
@@ -148,7 +161,9 @@ All routes except `/health` require a valid Bearer token. Errors use `{ "error":
 | POST   | `/api/events`                           | Create an event                           |
 | PATCH  | `/api/events/:id`                       | Update an event                           |
 | DELETE | `/api/events/:id`                       | Delete an event                           |
-| POST   | `/api/chat`                             | Send a message to the agent (streamed)    |
+| GET    | `/api/agents/threads`                   | List the user's agent threads             |
+| GET    | `/api/agents/threads/:threadId`         | Get messages in the user's thread         |
+| POST   | `/api/agents/chat`                      | Send a message and stream agent events    |
 
 ## 5. Key decisions
 
