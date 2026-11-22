@@ -17,6 +17,13 @@
 
 ---
 
+## Video Walkthrough
+
+- [Example scenario](https://drive.google.com/file/d/1T3vaLu1Cy0gZoJLrVo_DfFJ7B0Fgtv9T/view?usp=sharing)
+- [Example scenario](https://drive.google.com/file/d/1Uj4ve0BV_vYlyldLJ4_KvdwtUo5AvayR/view?usp=drive_link)
+
+---
+
 ## Why This Project Stands Out
 
 Agentic Calendar is not just a calendar UI. It is a **secure application boundary, an AI agent runtime, and a real productivity workflow** working together:
@@ -36,13 +43,13 @@ Agentic Calendar is not just a calendar UI. It is a **secure application boundar
 
 Users can sign in, connect their Google Calendar, and manage a persistent chat workspace.
 
-| Available now | Planned |
-| --- | --- |
-| Descope sign-in and protected routes | PostgreSQL-backed calendar event REST operations |
-| Google Calendar connection status and OAuth consent | Full meeting conflict and synchronization workflow |
+| Available now                                                      | Planned                                                 |
+| ------------------------------------------------------------------ | ------------------------------------------------------- |
+| Descope sign-in and protected routes                               | PostgreSQL-backed calendar event REST operations        |
+| Google Calendar connection status and OAuth consent                | Full meeting conflict and synchronization workflow      |
 | Mastra calendar tools: list, check, create, reschedule, and cancel | Google Meet invitation flows and provider edge handling |
-| Conversation threads and streamed agent responses | Public MCP integration for external AI clients |
-| Server-side identity-derived authorization | Production memory storage and conversation retention |
+| Conversation threads and streamed agent responses                  | Public MCP integration for external AI clients          |
+| Server-side identity-derived authorization                         | Production memory storage and conversation retention    |
 
 The implemented agent tools include:
 
@@ -89,17 +96,17 @@ flowchart LR
 
 ## Technology Stack
 
-| Area | Technologies |
-| --- | --- |
-| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), Lucide React |
-| Backend | Node.js, Express 5, TypeScript ESM, Zod 4 |
-| AI | Mastra, Groq AI SDK, tool-calling agents, LibSQL working memory |
-| Authentication | Descope Next.js SDK, Descope Node SDK, Bearer session JWT |
-| Calendar | Google Calendar API through Google APIs + Descope Outbound Apps |
-| Database | PostgreSQL 16, `pg`, transactional migrations |
-| Streaming | Server-Sent Events |
-| DevOps | Docker, Docker Compose, multi-stage production Dockerfiles |
-| Testing | Node test runner, Vitest, React Testing Library |
+| Area           | Technologies                                                                         |
+| -------------- | ------------------------------------------------------------------------------------ |
+| Frontend       | Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), Lucide React |
+| Backend        | Node.js, Express 5, TypeScript ESM, Zod 4                                            |
+| AI             | Mastra, Groq AI SDK, tool-calling agents, LibSQL working memory                      |
+| Authentication | Descope Next.js SDK, Descope Node SDK, Bearer session JWT                            |
+| Calendar       | Google Calendar API through Google APIs + Descope Outbound Apps                      |
+| Database       | PostgreSQL 16, `pg`, transactional migrations                                        |
+| Streaming      | Server-Sent Events                                                                   |
+| DevOps         | Docker, Docker Compose, multi-stage production Dockerfiles                           |
+| Testing        | Node test runner, Vitest, React Testing Library                                      |
 
 ---
 
@@ -187,13 +194,13 @@ docker compose up --build
 
 This starts PostgreSQL, Adminer, the Express backend, and the Next.js frontend.
 
-| Service | URL |
-| --- | --- |
-| Application | http://localhost:3000 |
-| Backend API | http://localhost:4000 |
+| Service      | URL                          |
+| ------------ | ---------------------------- |
+| Application  | http://localhost:3000        |
+| Backend API  | http://localhost:4000        |
 | Health check | http://localhost:4000/health |
-| Adminer | http://localhost:8080 |
-| PostgreSQL | `localhost:5442` |
+| Adminer      | http://localhost:8080        |
+| PostgreSQL   | `localhost:5442`             |
 
 ### 3. Alternative: run services directly
 
